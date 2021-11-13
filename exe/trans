@@ -1,0 +1,39 @@
+#!/usr/bin/env ruby
+require 'light_tr'
+command = ARGV[0].to_s.strip
+
+return LightTr::Commands.command_runner '-config' if LightTr::Config.config_missing?
+return LightTr::Commands.command_runner(command) if LightTr::Commands.command?(command)
+
+raise LightTr::Error, "Please put some text!" if ARGV[0].nil?
+
+override_language = /^\-[a-zA-Z]{2}$/.match(command)
+languages         = (override_language ? ARGV[0].strip[1..2] : LightTr::Config.languages).split(',').map(&:strip)
+full_text         = (override_language ? ARGV[1..] : ARGV).join(' ')
+store             = LightTr::Store.new(name: 'translations', file_path: LightTr::Config.config_path)
+translator        = LightTr::Translator.new(LightTr::Config.api_key)
+text              = full_text.gsub(/[[:space:]]+/, ' ').strip
+interactive       = command == '-i'
+
+unless text.empty?
+  runner = LightTr::Runner.new(store, translator)
+  return puts runner.translate(languages[0], text) if languages.count == 1
+  languages.each { |target| puts "#{target.upcase}: #{runner.translate(target, text)}" }
+end
+
+if interactive
+  puts 'Interactive mode! (quit by /q or empty line)'
+  puts 'Type any sentence now:'
+
+  loop do
+    text = STDIN.gets.chomp.to_s.gsub(/[[:space:]]+/, ' ').strip
+    break if text == '/q' || text.empty?
+
+    runner = LightTr::Runner.new(store, translator)
+    return puts "  " + runner.translate(languages[0], text) if languages.count == 1
+    languages.each { |target| puts "  #{target.upcase}: #{runner.translate(target, text)}" }
+    puts "\n"
+  end
+end
+
+LightTr::Commands.print_footer
