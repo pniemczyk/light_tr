@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    light_tr (2.0.0)
+    light_tr (2.0.1)
       awesome_print (~> 1.2)
       executable (~> 1.2)
       faraday (~> 2.0)

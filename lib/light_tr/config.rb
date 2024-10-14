@@ -36,7 +36,7 @@ module LightTr
     end
 
     def self.config_exists?
-      File.exists?(config_file)
+      File.exist?(config_file)
     end
 
     def self.config_missing?
