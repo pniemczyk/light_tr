@@ -27,6 +27,8 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency 'rspec', '~> 2.12'
   spec.add_development_dependency 'guard-rspec', '~> 0'
   spec.add_development_dependency 'rake', '~> 10.0'
+  spec.add_dependency 'faraday-mashify', '~> 0.1'
+  spec.add_dependency 'faraday', '~> 2.0'
   spec.add_dependency 'hashie', '~> 2.1'
   spec.add_dependency 'executable', '~> 1.2'
   spec.add_dependency 'awesome_print', '~> 1.2'

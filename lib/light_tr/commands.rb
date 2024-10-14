@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 require 'fileutils'
 require 'lockbox'
+require 'light_tr/chat_gpt'
 
 module LightTr
   class Commands
@@ -36,8 +37,8 @@ module LightTr
       puts "\noptions:"
       puts '  -config      : init configuration'
       puts '  -show_config : show configuration'
-      puts '  -clear_cache : clear translation cache'
-      puts '  -pl          : translate only one language (pl can be changed on any supported language)'
+      puts '  -clear_cache : clear translation cache [only for google provider]'
+      puts '  -pl          : translate only one language (pl can be changed on any supported language) [only for google provider]'
       puts '  -i           : run translator in interactive mode'
     end
 
@@ -48,11 +49,14 @@ module LightTr
     end
 
     def self.show_config
-      api_key  = ::LightTr::Config.api_key
+      api_key = ::LightTr::Config.api_key
       show_key = api_key[..10] + ('*' * (api_key.size - 10))
       puts 'Current configuration:'
       puts "\nlanguages                : #{::LightTr::Config.languages}"
       puts "Goggle Translate API key : #{show_key}\n"
+      puts "OpenAI API key           : #{::LightTr::Config.open_ai_key}"
+      puts "Provider                 : #{::LightTr::Config.provider}"
+      puts "Model                    : #{::LightTr::Config.model}"
     end
 
     def self.supported_languages
@@ -80,21 +84,63 @@ module LightTr
       value.to_s.split(',').map(&:strip).compact
     end
 
+    def self.default_model
+      'gpt-3.5-turbo'
+    end
+
     def self.update_config
       FileUtils.mkdir_p(::LightTr::Config.config_path) unless File.directory?(::LightTr::Config.config_path)
       puts 'Hello my friend lets setup Light Translator now!'
       puts 'We will need only two things, Google Translate API key and your favorite languages'
       puts "When you complete setup in your home directory will be created .light_tr/.config file with encrypted configuration"
+      puts "\n"
+      puts "\nYou can use two providers and set which one will be default: 'google' or 'openai'"
       puts "\nLet's add Google Translate API key first. Instructions on: https://cloud.google.com/translate/docs/quickstarts"
-      print 'Give me the Google Translate API key: '
+      print 'Give me the Google Translate API key: (empty to skip) '
       api_key = STDIN.gets.chomp
 
-      puts "\nlanguages example: pl, en, ru"
+      puts "\n"
+      puts "\nYou can choice multiple languages example: pl, en, ru"
+      puts "\nBut openia provider support only two languages because it's working a little bit differently."
+      puts "\nIt is detecting source language and translate to target language automatically. For example: pl, en"
+      puts "\n`Jak się dziś masz?` -> `How are you today?`"
       print 'Give me languages: '
       languages = prepare_languages(STDIN.gets.chomp).join(', ')
 
+      puts "\n"
+      puts "\nLet's add OpenAI API key now. Instructions on: https://platform.openai.com/api-keys"
+      print 'Give me the OpenAI API key key: (empty to skip) '
+      open_ai_api_key = STDIN.gets.chomp
+      models = open_ai_api_key.empty? ? [default_model] : ::LightTr::ChatGpt.new(open_ai_api_key).models
+      model = unless open_ai_api_key.empty?
+                puts "\n"
+                puts "\nLet's choice model for OpenAI. Default is (gpt-4o-mini)"
+                puts "\nAll available models:"
+                models.each { |m| puts m }
+
+                print 'Give me the model: (default is gpt-3.5-turbo) '
+                STDIN.gets.chomp
+              end
+
+      model = models.include?(model) ? model : default_model
+
+      puts "\n"
+      puts "\n Now let's set default provider. You can choice between 'google' and 'openai' (default is google if present)"
+      print 'Give me the provider: (you can use just letters g, o)'
+      provider = STDIN.gets.chomp
+      if %w[g google].include?(provider.downcase) && !api_key.empty?
+        provider = 'google'
+      elsif %w[o openai].include?(provider.downcase) && !open_ai_api_key.empty?
+        provider = 'openai'
+      else
+        provider = 'google'
+      end
+
       puts "\nYour configuration is:"
-      puts "API key: #{api_key}"
+      puts "Google API key: #{api_key}"
+      puts "OpenAI API key: #{open_ai_api_key}"
+      puts "OpenAI model: #{model.empty? ? default_model : model}"
+      puts "Provider: #{provider}"
       puts "languages: #{languages}\n\n"
 
       return languages_errors_and_update_config(languages) unless languages_valid?(languages)
@@ -109,6 +155,9 @@ module LightTr
       ::LightTr::Config.set({ 'master_key' => master_key })
       ::LightTr::Config.set({ 'api_key' => Lockbox.new(key: master_key).encrypt(api_key.strip) })
       ::LightTr::Config.set({ 'languages' => languages.strip })
+      ::LightTr::Config.set({ 'open_ai_key' => Lockbox.new(key: master_key).encrypt(open_ai_api_key.strip) })
+      ::LightTr::Config.set({ 'provider' => provider.strip })
+      ::LightTr::Config.set({ 'model' => (model.empty? ? default_model : model).strip })
 
       puts "\nHappy translating!"
     end

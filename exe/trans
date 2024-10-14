@@ -12,26 +12,34 @@ languages         = (override_language ? ARGV[0].strip[1..2] : LightTr::Config.l
 full_text         = (override_language ? ARGV[1..] : ARGV).join(' ')
 store             = LightTr::Store.new(name: 'translations', file_path: LightTr::Config.config_path)
 translator        = LightTr::Translator.new(LightTr::Config.api_key)
+gpt               = LightTr::ChatGpt.new(LightTr::Config.open_ai_key, LightTr::Config.model)
 text              = full_text.gsub(/[[:space:]]+/, ' ').strip
 interactive       = command == '-i'
 
 unless text.empty?
-  runner = LightTr::Runner.new(store, translator)
-  return puts runner.translate(languages[0], text) if languages.count == 1
-  languages.each { |target| puts "#{target.upcase}: #{runner.translate(target, text)}" }
+  if LightTr::Config.provider == 'google'
+    runner = LightTr::Runner.new(store, translator)
+    return puts runner.translate(languages[0], text) if languages.count == 1
+    languages.each { |target| puts "#{target.upcase}: #{runner.translate(target, text)}" }
+  else
+    puts gpt.translate(text, languages)
+  end
 end
 
 if interactive
   puts 'Interactive mode! (quit by /q or empty line)'
-  puts 'Type any sentence now:'
+  puts "Type any sentence now:\n"
 
   loop do
     text = STDIN.gets.chomp.to_s.gsub(/[[:space:]]+/, ' ').strip
     break if text == '/q' || text.empty?
-
-    runner = LightTr::Runner.new(store, translator)
-    return puts "  " + runner.translate(languages[0], text) if languages.count == 1
-    languages.each { |target| puts "  #{target.upcase}: #{runner.translate(target, text)}" }
+    if LightTr::Config.provider == 'google'
+      runner = LightTr::Runner.new(store, translator)
+      return puts "  " + runner.translate(languages[0], text) if languages.count == 1
+      languages.each { |target| puts "  #{target.upcase}: #{runner.translate(target, text)}" }
+    else
+      puts gpt.translate(text, languages)
+    end
     puts "\n"
   end
 end

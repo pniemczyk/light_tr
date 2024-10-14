@@ -11,10 +11,24 @@ module LightTr
       get['languages']
     end
 
+    def self.open_ai_key
+      get['open_ai_key'] || raise('OpenAI API key missing. Try to update configuration via `trans -config`')
+      master_key = get['master_key'] || raise('Config file corrupted. Try to update configuration via `trans -config`')
+      Lockbox.new(key: master_key).decrypt(get['open_ai_key'])
+    end
+
     def self.api_key
       get['api_key'] || raise('Google Translation API key missing. Try to update configuration via `trans -config`')
       master_key = get['master_key'] || raise('Config file corrupted. Try to update configuration via `trans -config`')
       Lockbox.new(key: master_key).decrypt(get['api_key'])
+    end
+
+    def self.provider
+      get['provider'] || 'google'
+    end
+
+    def self.model
+      get['model'] || 'gpt-3.5-turbo'
     end
 
     def self.config_path
